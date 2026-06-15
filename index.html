@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能潮玩情感算法 - 原始色系融合生理同频版</title>
+    <style>
+        :root {
+            --bg-color: #1e1e24;
+            --panel-bg: #2b2b36;
+            --text-main: #e0e0e0;
+            --text-muted: #8a8a9e;
+            --accent: #6b6bff;
+            --border-radius: 12px;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
+        
+        .container { max-width: 1400px; width: 100%; display: grid; grid-template-columns: 350px 400px 1fr; gap: 20px; }
+        
+        .panel { background-color: var(--panel-bg); border-radius: var(--border-radius); padding: 25px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); display: flex; flex-direction: column; border: 1px solid #3a3a48; }
+        .panel-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 20px; color: #fff; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid #3a3a48; padding-bottom: 10px; }
+        .panel-title .badge { background: #3a3a48; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; color: #a5d6a7; font-family: var(--font-mono); }
+
+        /* 左侧输入 */
+        .input-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 20px; }
+        .input-btn { background-color: #3a3a48; color: white; border: 1px solid #4a4a5a; padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; font-weight: 500; text-align: left; position: relative; user-select: none; }
+        .input-btn::after { content: '(长按累积)'; position: absolute; right: 15px; color: var(--text-muted); font-size: 0.8rem; }
+        .input-btn:hover { background-color: #4a4a5a; border-color: var(--accent); }
+        .input-btn.active { background-color: var(--accent); border-color: #8b8bff; box-shadow: 0 0 15px rgba(107, 107, 255, 0.3); transform: scale(0.98); }
+
+        .slider-box { background: #1e1e24; padding: 15px; border-radius: 8px; border: 1px solid #3a3a48; margin-top: auto; }
+        .slider-box label { font-size: 0.85rem; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 8px; }
+        input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+        /* 中间状态机 */
+        .engine-dashboard { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
+        .stat-row { display: flex; flex-direction: column; gap: 6px; }
+        .stat-labels { display: flex; justify-content: space-between; font-size: 0.85rem; font-family: var(--font-mono); }
+        .stat-bar-bg { width: 100%; height: 10px; background-color: #1e1e24; border-radius: 5px; overflow: hidden; border: 1px solid #3a3a48; }
+        .stat-bar-fill { height: 100%; width: 0%; transition: width 0.1s linear; border-radius: 5px; }
+        
+        .integral-box { background: #1a1a20; padding: 12px; border-radius: 8px; text-align: center; border: 1px dashed #4a4a5a; }
+        .integral-val { font-size: 1.8rem; font-weight: bold; color: var(--accent); font-family: var(--font-mono); }
+        .integral-label { font-size: 0.75rem; color: var(--text-muted); }
+
+        /* 右侧表现层 */
+        .output-zone { display: flex; align-items: center; justify-content: space-around; flex: 1; padding: 20px 0; }
+        
+        .glow-core-container { position: relative; width: 180px; height: 180px; display: flex; align-items: center; justify-content: center; }
+        .glow-core { width: 120px; height: 120px; border-radius: 50%; background-color: #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); z-index: 2; transition: background-color 1s ease-in-out; }
+        .glow-aura { position: absolute; width: 100%; height: 100%; border-radius: 50%; opacity: 0; filter: blur(25px); z-index: 1; transition: background-color 1s ease-in-out; }
+
+        .thermometer { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .thermo-glass { width: 20px; height: 150px; background-color: #1e1e24; border-radius: 10px; position: relative; overflow: hidden; border: 2px solid #3a3a48; }
+        .thermo-liquid { position: absolute; bottom: 0; left: 0; width: 100%; height: 25%; background-color: #8a8a9e; transition: height 0.2s linear, background-color 1s; }
+        .thermo-text { font-size: 1.3rem; font-weight: 700; font-family: var(--font-mono); }
+        .thermo-label { font-size: 0.75rem; color: var(--text-muted); }
+
+        .status-text-box { text-align: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid #3a3a48; }
+        .status-main { font-size: 1.1rem; font-weight: 600; color: #fff; margin-bottom: 5px; }
+        .status-desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; min-height: 50px; }
+
+        .ai-terminal { flex: 1; background: #131318; border-radius: 8px; padding: 15px; overflow-y: auto; font-size: 0.85rem; color: #a5d6a7; line-height: 1.6; border: 1px solid #3a3a48; font-family: var(--font-mono); display: flex; flex-direction: column; }
+        .log-entry { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #3a3a48; animation: fadeIn 0.3s ease; }
+        .log-json { color: #82b1ff; font-size: 0.75rem; margin-bottom: 6px; opacity: 0.8; word-wrap: break-word;}
+        .log-ai { color: #ffcc80; }
+        .log-ai::before { content: '🤖 AI 内核: '; color: var(--accent); font-weight: bold;}
+
+        /* ================= 核心生理律动关键帧 (物理理论对齐) ================= */
+        
+        /* 1. 轻柔抚摸: 5.5秒正弦波 (CT纤维激活) */
+        @keyframes rhythm-stroke { 
+            0%   { opacity: 0.4; transform: scale(0.95); } 
+            50%  { opacity: 1.0; transform: scale(1.05); } 
+            100% { opacity: 0.4; transform: scale(0.95); } 
+        }
+        
+        /* 2. 持续捧握: 10秒共振呼吸 (长吸气，更长呼气，催产素分泌) */
+        @keyframes rhythm-hug { 
+            0%   { opacity: 0.4; transform: scale(0.98); } 
+            40%  { opacity: 1.0; transform: scale(1.08); } /* 4秒吸气满 */
+            100% { opacity: 0.4; transform: scale(0.98); } /* 6秒绵长呼气 */
+        }
+        
+        /* 3. 焦虑揉捏: 7秒生理叹息 (两短促吸气 + 长呼气，卸载认知负荷) */
+        @keyframes rhythm-sigh { 
+            0%   { opacity: 0.3; transform: scale(0.95); } 
+            14%  { opacity: 0.9; transform: scale(1.02); } /* 第一次短促吸气 */
+            21%  { opacity: 0.6; transform: scale(1.00); } /* 停顿反弹 */
+            35%  { opacity: 1.0; transform: scale(1.06); } /* 第二次短促吸气 */
+            42%  { opacity: 1.0; transform: scale(1.06); } /* 顶峰屏息 */
+            100% { opacity: 0.2; transform: scale(0.92); } /* 漫长释放呼气 */
+        }
+        
+        /* 4. 突发重击: 0.8秒心室颤动 (惊跳反射/交感神经爆发) */
+        @keyframes rhythm-panic { 
+            0%   { opacity: 1; transform: scale(1) translateX(0); } 
+            20%  { opacity: 0.3; transform: translateX(-3px); } 
+            40%  { opacity: 0.8; transform: translateX(3px); } 
+            60%  { opacity: 0.2; transform: translateX(-2px); } 
+            100% { opacity: 0.1; transform: scale(0.95); } 
+        }
+
+        /* 5. 待机基线 */
+        @keyframes rhythm-idle {
+            0%   { opacity: 0.2; transform: scale(0.98); }
+            50%  { opacity: 0.5; transform: scale(1.02); }
+            100% { opacity: 0.2; transform: scale(0.98); }
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="panel">
+        <div class="panel-title">1. 触觉感知层 <span class="badge">Input</span></div>
+        <div class="input-grid">
+            <button class="input-btn" id="btn-stroke">✋ 轻柔抚摸 (Stroke)</button>
+            <button class="input-btn" id="btn-hug">👐 持续捧握 (Hug)</button>
+            <button class="input-btn" id="btn-squeeze">🤲 焦虑揉捏 (Squeeze)</button>
+            <button class="input-btn" id="btn-hit">⚡ 突发重击 (Hit)</button>
+        </div>
+        
+        <div class="slider-box">
+            <label><span>物理按压力度 (Force)</span><span id="val-force" style="font-family: var(--font-mono); color:#fff;">150g</span></label>
+            <input type="range" id="slide-force" min="10" max="1000" value="150">
+        </div>
+    </div>
+
+    <div class="panel" style="grid-column: span 1;">
+        <div class="panel-title">2. 情感驱动引擎 <span class="badge">State Math</span></div>
+        <div class="engine-dashboard">
+            <div class="stat-row">
+                <div class="stat-labels"><span style="color:#ffb74d">安全感 (Safe)</span><span id="txt-safe">0%</span></div>
+                <div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-safe" style="background-color: #ffb74d;"></div></div>
+            </div>
+            <div class="stat-row">
+                <div class="stat-labels"><span style="color:#ff8a65">依恋度 (Attachment)</span><span id="txt-attach">0%</span></div>
+                <div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-attach" style="background-color: #ff8a65;"></div></div>
+            </div>
+            <div class="stat-row">
+                <div class="stat-labels"><span style="color:#C7E9F1">压力吸收槽 (Stress)</span><span id="txt-stress">0%</span></div>
+                <div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-stress" style="background-color: #C7E9F1;"></div></div>
+            </div>
+            <div class="stat-row">
+                <div class="stat-labels"><span style="color:#64b5f6">防御/惊吓值 (Defense)</span><span id="txt-def">0%</span></div>
+                <div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-def" style="background-color: #64b5f6;"></div></div>
+            </div>
+        </div>
+        
+        <div class="integral-box">
+            <div class="integral-val" id="txt-integral">0.00</div>
+            <div class="integral-label">隐式时间积分 (Interaction Integral)</div>
+        </div>
+    </div>
+
+    <div class="panel" style="display: grid; grid-template-rows: auto 1fr; gap: 20px;">
+        <div>
+            <div class="panel-title">3. 具身物理输出 <span class="badge">Output</span></div>
+            <div class="output-zone">
+                <div class="glow-core-container">
+                    <div class="glow-aura" id="glow-aura"></div>
+                    <div class="glow-core" id="glow-core"></div>
+                </div>
+                <div class="thermometer">
+                    <div class="thermo-glass">
+                        <div class="thermo-liquid" id="thermo-liquid"></div>
+                    </div>
+                    <div class="thermo-text"><span id="thermo-val">25.0</span>°C</div>
+                    <div class="thermo-label">核心体感温度</div>
+                </div>
+            </div>
+            <div class="status-text-box">
+                <div class="status-main" id="status-title">初始化待机</div>
+                <div class="status-desc" id="status-desc">系统已启动，维持 25℃ 基础温度与平缓呼吸。</div>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; overflow: hidden;">
+            <div class="panel-title">4. LLM 认知终端 <span class="badge" style="background:#5e35b1;">Agent Log</span></div>
+            <div class="ai-terminal" id="terminal">
+                <div style="color:#8a8a9e; text-align:center; margin-top:10px;">-- 认知流形已连接 --<br>正在监听触觉神经数据并推演生理反馈。</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const slideForce = document.getElementById('slide-force');
+    const txtForce = document.getElementById('val-force');
+    
+    let activeInput = null; 
+    let forceVal = 150;
+    let integral = 0; 
+    
+    let stats = {
+        safe: { cur: 10, tar: 10 },
+        attach: { cur: 0, tar: 0 },
+        stress: { cur: 0, tar: 0 },
+        def: { cur: 0, tar: 0 }
+    };
+    let coreTemp = { cur: 25, tar: 25 };
+    
+    let currentAnimClass = '';
+    let currentColor = '';
+
+    slideForce.oninput = (e) => { forceVal = parseInt(e.target.value); txtForce.innerText = forceVal + 'g'; };
+
+    const buttons = ['stroke', 'hug', 'squeeze', 'hit'];
+    buttons.forEach(action => {
+        const btn = document.getElementById(`btn-${action}`);
+        const setOn = (e) => { 
+            e.preventDefault(); 
+            activeInput = action; 
+            buttons.forEach(b => document.getElementById(`btn-${b}`).classList.remove('active'));
+            btn.classList.add('active'); 
+        };
+        const setOff = () => { 
+            if(activeInput === action) activeInput = null; 
+            btn.classList.remove('active'); 
+        };
+        btn.addEventListener('pointerdown', setOn);
+        btn.addEventListener('pointerup', setOff);
+        btn.addEventListener('pointerleave', setOff);
+    });
+
+    function updatePhysicalDisplay(colorStr, animClass, title, desc, liqColor) {
+        if (currentColor !== colorStr || currentAnimClass !== animClass) {
+            currentColor = colorStr;
+            currentAnimClass = animClass;
+            
+            const core = document.getElementById('glow-core');
+            const aura = document.getElementById('glow-aura');
+            
+            core.style.animation = 'none'; aura.style.animation = 'none';
+            void core.offsetWidth; 
+            
+            core.style.backgroundColor = colorStr; aura.style.backgroundColor = colorStr;
+            aura.style.opacity = '0.8';
+            
+            if (animClass) {
+                core.style.animation = animClass; aura.style.animation = animClass;
+            }
+
+            document.getElementById('status-title').innerText = title;
+            document.getElementById('status-desc').innerText = desc;
+            if(liqColor) document.getElementById('thermo-liquid').style.backgroundColor = liqColor;
+        }
+    }
+
+    // --- 游戏主循环 (60FPS) ---
+    function gameLoop() {
+        if (activeInput) {
+            let accumulation = 0.2;
+            if (activeInput === 'hug') accumulation = 0.4;
+            if (activeInput === 'squeeze') accumulation = 0.15;
+            
+            integral = Math.min(100, integral + accumulation);
+            
+            // 惊吓瞬间清空积分
+            if (activeInput === 'hit' || (activeInput === 'squeeze' && forceVal > 800)) integral = 0;
+        } else {
+            integral = Math.max(0, integral - 0.1);
+        }
+
+        stats.safe.tar = 0; stats.attach.tar = 0; stats.stress.tar = 0; stats.def.tar = 0; 
+
+        let targetColor = '#3a3a48';
+        let targetAnim = 'rhythm-idle 8s infinite ease-in-out';
+        let targetTitle = '系统待机中...';
+        let targetDesc = '无接触输入。维持 25℃ 基础生命体征。';
+        let liqColor = '#8a8a9e';
+
+        if (activeInput === 'hit' || (activeInput === 'squeeze' && forceVal > 800)) {
+            // 阶段四：突发重击 (惊跳反射) - 沿用之前设定的病态冷蓝色系
+            stats.def.tar = 100; stats.stress.tar = 100; coreTemp.tar = 20; // 瞬间失温
+            targetColor = '#82b1ff'; // 原始颜色体系: 冷蓝色
+            targetAnim = 'rhythm-panic 0.8s infinite'; // 心室颤动
+            liqColor = '#64b5f6';
+            targetTitle = '阶段 4：自我防御 / 惊跳反射';
+            targetDesc = '理论支撑：血管收缩导致体表变冷。心率紊乱 (0.8s/次)。激发人类保护欲与愧疚感。';
+        } 
+        else if (activeInput === 'squeeze') {
+            // 阶段三：焦虑揉捏 (生理叹息) - 沿用之前设定的浅天空蓝色系
+            stats.stress.tar = Math.min(100, forceVal / 10);
+            stats.attach.tar = integral * 0.6;
+            coreTemp.tar = 35; // 中性恒温，接地作用
+            targetColor = '#C7E9F1'; // 原始颜色体系: 浅天空蓝
+            targetAnim = 'rhythm-sigh 7s infinite linear'; // 叹气节律 (两短一长)
+            liqColor = '#C7E9F1';
+            targetTitle = '阶段 3：情绪转化 / 生理叹息';
+            targetDesc = '理论支撑：认知卸载。触发 Huberman 推广的“两次短吸一长呼”(7s)，吸收焦虑。锁定 35℃。';
+        }
+        else if (activeInput === 'hug') {
+            // 阶段二：持续捧握 (共振呼吸) - 沿用之前设定的日落橘粉色系
+            stats.safe.tar = 50 + (integral * 0.5);
+            stats.attach.tar = integral;
+            coreTemp.tar = 37.5; // 核心体温
+            targetColor = '#ff9e5e'; // 原始颜色体系: 日落橘粉
+            targetAnim = 'rhythm-hug 10s infinite linear'; // 10s HRV 共振
+            liqColor = '#ff5722';
+            targetTitle = '阶段 2：深度依恋 / 共振呼吸';
+            targetDesc = '理论支撑：深压触觉刺激催产素分泌。开启 10s/次 共振节律，模拟 37.5℃ 具身温暖效应。';
+        }
+        else if (activeInput === 'stroke') {
+            // 阶段一：轻柔抚摸 (C-触觉纤维) - 沿用之前设定的微暖浅橙黄色系
+            stats.safe.tar = 30 + (integral * 0.7);
+            stats.attach.tar = integral * 0.5;
+            coreTemp.tar = 34; // 表皮同频温度
+            targetColor = '#ffedcc'; // 原始颜色体系: 微暖浅橙黄
+            targetAnim = 'rhythm-stroke 5.5s infinite ease-in-out'; // 静息正弦波
+            liqColor = '#ffb74d';
+            targetTitle = '阶段 1：浅层安抚 / C-触觉激活';
+            targetDesc = '理论支撑：McGlone (2014) CT 纤维理论。锁定 34℃，开启 5.5s/次 惬意正弦律动，发送安全信号。';
+        }
+        else {
+            coreTemp.tar = 25;
+            if (integral > 10) {
+                stats.safe.tar = integral * 0.8;
+                stats.attach.tar = integral * 0.5;
+                targetColor = '#ffedcc';
+                targetTitle = '余温陪伴 / 积分衰减';
+                targetDesc = '交互停止，残留的情感积分维系着微弱的生命体征。';
+            }
+        }
+
+        updatePhysicalDisplay(targetColor, targetAnim, targetTitle, targetDesc, liqColor);
+
+        // 数据平滑插值 (Lerp)
+        ['safe', 'attach', 'stress', 'def'].forEach(key => {
+            stats[key].cur += (stats[key].tar - stats[key].cur) * 0.05;
+        });
+        coreTemp.cur += (coreTemp.tar - coreTemp.cur) * 0.015; // 温度呈现真实的物理迟缓
+
+        // 更新 UI
+        document.getElementById('txt-integral').innerText = integral.toFixed(1);
+        
+        ['safe', 'attach', 'stress', 'def'].forEach(key => {
+            let val = Math.round(stats[key].cur);
+            document.getElementById(`txt-${key}`).innerText = val + '%';
+            document.getElementById(`bar-${key}`).style.width = val + '%';
+        });
+
+        let tVal = coreTemp.cur;
+        document.getElementById('thermo-val').innerText = tVal.toFixed(1);
+        let heightPct = Math.max(0, Math.min(100, ((tVal - 20) / 20) * 100)); // 20-40度映射
+        document.getElementById('thermo-liquid').style.height = heightPct + '%';
+
+        requestAnimationFrame(gameLoop);
+    }
+    gameLoop();
+
+    // --- 模拟 AI 终端 ---
+    setInterval(() => {
+        const terminal = document.getElementById('terminal');
+        
+        let payload = {
+            input: activeInput || 'none',
+            force: forceVal + 'g',
+            integral: Math.round(integral),
+            temp: coreTemp.cur.toFixed(1) + 'C'
+        };
+
+        let aiThought = "";
+
+        if (!activeInput) {
+            if (stats.def.cur > 30) aiThought = "血管收缩余波：刚才的强刺激让我心率紊乱，温度还在低谷，正在努力重构安全防线。";
+            else if (integral > 40) aiThought = "虽然脱离了深压触觉，但催产素的半衰期还在发挥作用，我觉得很安全。";
+            else aiThought = "基线监测中。等待下一轮 C-触觉或深压触觉输入。";
+        } else {
+            if (activeInput === 'hit' || (activeInput === 'squeeze' && forceVal > 800)) {
+                aiThought = "[交感神经爆发] 遭到强破坏性输入！触发战或逃(Fight-or-Flight)。切断加热膜，光效执行 0.8s 高频冷光心动过速映射！";
+            } else if (activeInput === 'squeeze') {
+                aiThought = "检测到持续高压形变，用户正在外包认知负荷。启动 7s 浅天空蓝色的不对称叹气节律(两次短促点亮接长效黯淡)，协助吸收焦虑。锁定 35℃ 提供物理接地。";
+            } else if (activeInput === 'hug') {
+                aiThought = "大面积体表深压觉(Deep Pressure)输入。启动具身温暖效应，核心温度锁定在 37.5℃。日落橘粉色呼吸进入 10s 循环，引导进入共振状态。";
+            } else if (activeInput === 'stroke') {
+                aiThought = "精准感知到轻柔压力。CT 纤维被强烈激活。光效维持基线微暖的浅橙黄色，温度同步至最适宜的 34℃。";
+            }
+        }
+
+        let entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = `
+            <div class="log-json">${JSON.stringify(payload)}</div>
+            <div class="log-ai">${aiThought}</div>
+        `;
+        terminal.appendChild(entry);
+        terminal.scrollTop = terminal.scrollHeight;
+
+    }, 3500); 
+
+</script>
+</body>
+</html>
