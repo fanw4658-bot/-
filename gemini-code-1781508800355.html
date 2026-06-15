@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能潮玩情感算法 - 积分引擎融合版</title>
+    <style>
+        :root {
+            /* 采用代码二的颜色体系 */
+            --bg-color: #1e1e24;
+            --panel-bg: #2b2b36;
+            --text-main: #e0e0e0;
+            --text-muted: #8a8a9e;
+            --accent: #6b6bff;
+            --border-radius: 12px;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
+        
+        /* 融合后的三列网格布局 */
+        .container { max-width: 1400px; width: 100%; display: grid; grid-template-columns: 350px 400px 1fr; gap: 20px; }
+        
+        .panel { background-color: var(--panel-bg); border-radius: var(--border-radius); padding: 25px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); display: flex; flex-direction: column; border: 1px solid #3a3a48; }
+        .panel-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 20px; color: #fff; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid #3a3a48; padding-bottom: 10px; }
+        .panel-title .badge { background: #3a3a48; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; color: #a5d6a7; font-family: var(--font-mono); }
+
+        /* 左侧：输入控制区 (继承代码一的长按逻辑与代码二的样式) */
+        .input-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 20px; }
+        .input-btn { background-color: #3a3a48; color: white; border: 1px solid #4a4a5a; padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; font-weight: 500; text-align: left; position: relative; user-select: none; }
+        .input-btn::after { content: '(长按累积)'; position: absolute; right: 15px; color: var(--text-muted); font-size: 0.8rem; }
+        .input-btn:hover { background-color: #4a4a5a; border-color: var(--accent); }
+        .input-btn.active { background-color: var(--accent); border-color: #8b8bff; box-shadow: 0 0 15px rgba(107, 107, 255, 0.3); transform: scale(0.98); }
+
+        .slider-box { background: #1e1e24; padding: 15px; border-radius: 8px; border: 1px solid #3a3a48; margin-top: auto; }
+        .slider-box label { font-size: 0.85rem; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 8px; }
+        input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+        /* 中间：状态机仪表盘 (完全采用代码二的 UI，由代码一驱动) */
+        .engine-dashboard { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
+        .stat-row { display: flex; flex-direction: column; gap: 6px; }
+        .stat-labels { display: flex; justify-content: space-between; font-size: 0.85rem; font-family: var(--font-mono); }
+        .stat-bar-bg { width: 100%; height: 10px; background-color: #1e1e24; border-radius: 5px; overflow: hidden; border: 1px solid #3a3a48; }
+        .stat-bar-fill { height: 100%; width: 0%; transition: width 0.1s linear; border-radius: 5px; }
+        
+        .integral-box { background: #1a1a20; padding: 12px; border-radius: 8px; text-align: center; border: 1px dashed #4a4a5a; }
+        .integral-val { font-size: 1.8rem; font-weight: bold; color: var(--accent); font-family: var(--font-mono); }
+        .integral-label { font-size: 0.75rem; color: var(--text-muted); }
+
+        /* 中右侧：物理表达层与光效 (代码二极致表现) */
+        .output-zone { display: flex; align-items: center; justify-content: space-around; flex: 1; padding: 20px 0; }
+        
+        .glow-core-container { position: relative; width: 180px; height: 180px; display: flex; align-items: center; justify-content: center; }
+        .glow-core { width: 120px; height: 120px; border-radius: 50%; background-color: #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); z-index: 2; transition: background-color 0.8s; }
+        .glow-aura { position: absolute; width: 100%; height: 100%; border-radius: 50%; opacity: 0; filter: blur(25px); z-index: 1; transition: background-color 0.8s; }
+
+        .thermometer { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .thermo-glass { width: 20px; height: 150px; background-color: #1e1e24; border-radius: 10px; position: relative; overflow: hidden; border: 2px solid #3a3a48; }
+        .thermo-liquid { position: absolute; bottom: 0; left: 0; width: 100%; height: 25%; background-color: #8a8a9e; transition: height 0.2s linear, background-color 0.8s; }
+        .thermo-text { font-size: 1.3rem; font-weight: 700; font-family: var(--font-mono); }
+        .thermo-label { font-size: 0.75rem; color: var(--text-muted); }
+
+        .status-text-box { text-align: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid #3a3a48; }
+        .status-main { font-size: 1.1rem; font-weight: 600; color: #fff; margin-bottom: 5px; }
+        .status-desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; min-height: 40px; }
+
+        /* 右侧：AI 终端 (代码一机制 + 代码二配色) */
+        .ai-terminal { flex: 1; background: #131318; border-radius: 8px; padding: 15px; overflow-y: auto; font-size: 0.85rem; color: #a5d6a7; line-height: 1.6; border: 1px solid #3a3a48; font-family: var(--font-mono); display: flex; flex-direction: column; }
+        .log-entry { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #3a3a48; animation: fadeIn 0.3s ease; }
+        .log-json { color: #82b1ff; font-size: 0.75rem; margin-bottom: 6px; opacity: 0.8; word-wrap: break-word;}
+        .log-ai { color: #ffcc80; }
+        .log-ai::before { content: '🤖 AI 内核: '; color: var(--accent); font-weight: bold;}
+
+        /* 动画关键帧 (完全保留代码二光效) */
+        @keyframes breatheSlow { 0% { opacity: 0.4; transform: scale(0.95); } 50% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0.4; transform: scale(0.95); } }
+        @keyframes sigh { 0% { opacity: 0.8; transform: scale(1); } 20% { opacity: 1; transform: scale(1.05); } 30% { opacity: 0.9; transform: scale(1); } 40% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0.2; transform: scale(0.9); } }
+        @keyframes panic { 0% { opacity: 1; transform: scale(1) translateX(0); } 10% { opacity: 0.3; transform: translateX(-3px); } 20% { opacity: 0.8; transform: translateX(3px); } 30% { opacity: 0.2; transform: translateX(-2px); } 100% { opacity: 0.1; transform: scale(0.95); } }
+        @keyframes constantWarm { 0% { opacity: 0.9; transform: scale(1.02); } 50% { opacity: 1; transform: scale(1.03); } 100% { opacity: 0.9; transform: scale(1.02); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="panel">
+        <div class="panel-title">1. 触觉感知层 <span class="badge">Input</span></div>
+        <div class="input-grid">
+            <button class="input-btn" id="btn-stroke">✋ 轻柔抚摸 (Stroke)</button>
+            <button class="input-btn" id="btn-hug">🫂 持续捧握 (Hug)</button>
+            <button class="input-btn" id="btn-squeeze">👐 焦虑揉捏 (Squeeze)</button>
+            <button class="input-btn" id="btn-hit">⚡ 突发重击 (Hit)</button>
+        </div>
+        
+        <div class="slider-box">
+            <label><span>物理按压力度 (Force)</span><span id="val-force" style="font-family: var(--font-mono); color:#fff;">150g</span></label>
+            <input type="range" id="slide-force" min="10" max="1000" value="150">
+        </div>
+    </div>
+
+    <div class="panel" style="grid-column: span 1;">
+        <div class="panel-title">2. 情感驱动引擎 <span class="badge">State Math</span></div>
+        <div class="engine-dashboard">
+            <div class="stat-row">
+                <div class="stat-labels"><span style="color:#ffb74d">安全感 (Safe)</span><span id="txt-safe">0%</span></div>
+                <div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-safe" style="background-color: #ffb74d;"></div></div>
+            </div>
+            <div class="stat-row">
+                <div class="stat-labels"><span style="color:#ff8a65">依恋度 (Attachment)</span><span id="txt-attach">0%</span></div>
+                <div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-attach" style="background-color: #ff8a65;"></div></div>
+            </div>
+            <div class="stat-row">
+                <div class="stat-labels"><span style="color:#C7E9F1">压力吸收槽 (Stress)</span><span id="txt-stress">0%</span></div>
+                <div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-stress" style="background-color: #C7E9F1;"></div></div>
+            </div>
+            <div class="stat-row">
+                <div class="stat-labels"><span style="color:#64b5f6">防御/惊吓值 (Defense)</span><span id="txt-def">0%</span></div>
+                <div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-def" style="background-color: #64b5f6;"></div></div>
+            </div>
+        </div>
+        
+        <div class="integral-box">
+            <div class="integral-val" id="txt-integral">0.00</div>
+            <div class="integral-label">隐式时间积分 (Interaction Integral)</div>
+        </div>
+    </div>
+
+    <div class="panel" style="display: grid; grid-template-rows: auto 1fr; gap: 20px;">
+        <div>
+            <div class="panel-title">3. 具身物理输出 <span class="badge">Output</span></div>
+            <div class="output-zone">
+                <div class="glow-core-container">
+                    <div class="glow-aura" id="glow-aura"></div>
+                    <div class="glow-core" id="glow-core"></div>
+                </div>
+                <div class="thermometer">
+                    <div class="thermo-glass">
+                        <div class="thermo-liquid" id="thermo-liquid"></div>
+                    </div>
+                    <div class="thermo-text"><span id="thermo-val">25</span>°C</div>
+                    <div class="thermo-label">核心热源映射</div>
+                </div>
+            </div>
+            <div class="status-text-box">
+                <div class="status-main" id="status-title">系统待机中...</div>
+                <div class="status-desc" id="status-desc">核心温度维持基线，等待交互积分注入。</div>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; overflow: hidden;">
+            <div class="panel-title">4. LLM 认知终端 <span class="badge" style="background:#5e35b1;">Agent Log</span></div>
+            <div class="ai-terminal" id="terminal">
+                <div style="color:#8a8a9e; text-align:center; margin-top:10px;">-- 认知流形已连接 --<br>根据长按积分与瞬时推演计算。</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 核心变量 ---
+    const slideForce = document.getElementById('slide-force');
+    const txtForce = document.getElementById('val-force');
+    
+    let activeInput = null; // 当前按下的按钮：'stroke', 'hug', 'squeeze', 'hit'
+    let forceVal = 150;
+    let integral = 0; // 核心灵魂：时间积分 0-100
+    
+    // 物理与情绪状态结构 (cur: 当前平滑值, tar: 目标值)
+    let stats = {
+        safe: { cur: 10, tar: 10 },
+        attach: { cur: 0, tar: 0 },
+        stress: { cur: 0, tar: 0 },
+        def: { cur: 0, tar: 0 }
+    };
+    let coreTemp = { cur: 25, tar: 25 };
+    
+    // 光效状态锁，防止在 Loop 中重复触发重绘
+    let currentAnimClass = '';
+    let currentColor = '';
+
+    // --- 事件绑定 ---
+    slideForce.oninput = (e) => { forceVal = parseInt(e.target.value); txtForce.innerText = forceVal + 'g'; };
+
+    const buttons = ['stroke', 'hug', 'squeeze', 'hit'];
+    buttons.forEach(action => {
+        const btn = document.getElementById(`btn-${action}`);
+        const setOn = (e) => { 
+            e.preventDefault(); 
+            activeInput = action; 
+            buttons.forEach(b => document.getElementById(`btn-${b}`).classList.remove('active'));
+            btn.classList.add('active'); 
+        };
+        const setOff = () => { 
+            if(activeInput === action) activeInput = null; 
+            btn.classList.remove('active'); 
+        };
+        btn.addEventListener('pointerdown', setOn);
+        btn.addEventListener('pointerup', setOff);
+        btn.addEventListener('pointerleave', setOff);
+    });
+
+    // --- 光效与文案更新器 ---
+    function updatePhysicalDisplay(colorStr, animClass, title, desc, liqColor) {
+        if (currentColor !== colorStr || currentAnimClass !== animClass) {
+            currentColor = colorStr;
+            currentAnimClass = animClass;
+            
+            const core = document.getElementById('glow-core');
+            const aura = document.getElementById('glow-aura');
+            
+            // 强行重置动画触发重新播放
+            core.style.animation = 'none'; aura.style.animation = 'none';
+            void core.offsetWidth; 
+            
+            core.style.backgroundColor = colorStr; aura.style.backgroundColor = colorStr;
+            aura.style.opacity = '0.8';
+            
+            if (animClass) {
+                core.style.animation = animClass; aura.style.animation = animClass;
+            } else {
+                aura.style.opacity = '0.2'; // 待机弱光
+            }
+
+            document.getElementById('status-title').innerText = title;
+            document.getElementById('status-desc').innerText = desc;
+            
+            // 修改温度计液体颜色适配状态
+            if(liqColor) document.getElementById('thermo-liquid').style.backgroundColor = liqColor;
+        }
+    }
+
+    // --- 游戏主循环 (Game Loop) ---
+    function gameLoop() {
+        // 1. 计算积分 (Integration)
+        if (activeInput) {
+            let accumulation = 0.2;
+            if (activeInput === 'hug') accumulation = 0.4;
+            if (activeInput === 'squeeze') accumulation = 0.15;
+            
+            integral = Math.min(100, integral + accumulation);
+            
+            // 惊吓或重击瞬间清空积分
+            if (activeInput === 'hit' || (activeInput === 'squeeze' && forceVal > 800)) {
+                integral = 0;
+            }
+        } else {
+            // 失去接触，自然衰减
+            integral = Math.max(0, integral - 0.1);
+        }
+
+        // 2. 状态机目标解算 (State Target Resolution)
+        stats.safe.tar = 10; stats.attach.tar = 0; stats.stress.tar = 0; stats.def.tar = 0; coreTemp.tar = 25;
+
+        let targetColor = '#333344';
+        let targetAnim = '';
+        let targetTitle = '系统待机中...';
+        let targetDesc = '核心温度维持基线，等待交互积分注入。';
+        let liqColor = '#8a8a9e';
+
+        if (activeInput === 'hit' || (activeInput === 'squeeze' && forceVal > 800)) {
+            // 自我防御
+            stats.def.tar = 100; stats.stress.tar = 100; stats.safe.tar = 0; coreTemp.tar = 20;
+            targetColor = '#82b1ff'; targetAnim = 'panic 1s forwards'; liqColor = '#64b5f6';
+            targetTitle = '自我防御 / 惊吓退缩';
+            targetDesc = '检测到破坏性峰值压力，积分清零。温度迅速流失，激发人类保护欲。';
+        } 
+        else if (activeInput === 'squeeze') {
+            // 压力吸收槽 (Squeeze 特色代码二颜色 #C7E9F1)
+            stats.stress.tar = Math.min(100, forceVal / 10);
+            stats.safe.tar = Math.max(0, 50 - (forceVal/20));
+            stats.attach.tar = integral * 0.6;
+            coreTemp.tar = 30 + (integral * 0.05); // 微热
+            targetColor = '#C7E9F1'; targetAnim = 'sigh 6s forwards'; liqColor = '#C7E9F1';
+            targetTitle = '吸收压力 / 情绪转化';
+            targetDesc = '高强度压力持续输入，颜色过渡为浅天空蓝，伴随叹气律动。';
+        }
+        else if (activeInput === 'hug') {
+            // 持续捧握
+            stats.safe.tar = 50 + (integral * 0.5);
+            stats.attach.tar = integral;
+            coreTemp.tar = 25 + (integral * 0.12); // 最高 37度
+            targetColor = '#ff9e5e'; targetAnim = 'constantWarm 3s infinite'; liqColor = '#ff5722';
+            targetTitle = '深度羁绊 / 安全感映射';
+            targetDesc = '触发最高安全感阈值。光晕呈现日落橘粉常亮，模拟生命体温。';
+        }
+        else if (activeInput === 'stroke') {
+            // 轻柔抚摸
+            stats.safe.tar = 30 + (integral * 0.55);
+            stats.attach.tar = integral * 0.5;
+            coreTemp.tar = 25 + (integral * 0.09); // 最高 34度
+            targetColor = '#ffedcc'; targetAnim = 'breatheSlow 5s infinite'; liqColor = '#ffb74d';
+            targetTitle = '惬意陪伴 / 浅层安抚';
+            targetDesc = '平缓呼吸律动，PID温控启动，利用低频视觉牵引降低使用者焦虑。';
+        }
+        else {
+            // Idle 状态判定（利用剩余积分维持温度）
+            if (integral > 30) {
+                stats.safe.tar = integral * 0.8;
+                stats.attach.tar = integral * 0.5;
+                coreTemp.tar = 25 + (integral * 0.08);
+                targetColor = '#ffb74d'; targetAnim = 'breatheSlow 8s infinite'; liqColor = '#ffb74d';
+                targetTitle = '余温陪伴 / 积分衰减';
+                targetDesc = '交互已停止，但前期积累的积分让身体继续散发余温。';
+            }
+        }
+
+        updatePhysicalDisplay(targetColor, targetAnim, targetTitle, targetDesc, liqColor);
+
+        // 3. 数据平滑插值 (Lerp)
+        ['safe', 'attach', 'stress', 'def'].forEach(key => {
+            stats[key].cur += (stats[key].tar - stats[key].cur) * 0.05;
+        });
+        coreTemp.cur += (coreTemp.tar - coreTemp.cur) * 0.02; // 温度变化更迟缓
+
+        // 4. 更新 DOM
+        document.getElementById('txt-integral').innerText = integral.toFixed(1);
+        
+        ['safe', 'attach', 'stress', 'def'].forEach(key => {
+            let val = Math.round(stats[key].cur);
+            document.getElementById(`txt-${key}`).innerText = val + '%';
+            document.getElementById(`bar-${key}`).style.width = val + '%';
+        });
+
+        // 温度计 DOM (20度到45度映射到 0-100% 高度)
+        let tVal = coreTemp.cur;
+        document.getElementById('thermo-val').innerText = tVal.toFixed(1);
+        let heightPct = Math.max(0, Math.min(100, ((tVal - 20) / 25) * 100));
+        document.getElementById('thermo-liquid').style.height = heightPct + '%';
+
+        requestAnimationFrame(gameLoop);
+    }
+    gameLoop();
+
+    // --- 模拟 AI 终端异步流 (结合动作与积分推演) ---
+    setInterval(() => {
+        const terminal = document.getElementById('terminal');
+        
+        let payload = {
+            input: activeInput || 'none',
+            force_g: forceVal,
+            integral: Math.round(integral),
+            core_celsius: coreTemp.cur.toFixed(1)
+        };
+
+        let aiThought = "";
+
+        if (!activeInput) {
+            if (stats.def.cur > 30) aiThought = "防卫阈值未完全消退，刚才的惊吓让我还在发抖，正在努力平复。";
+            else if (integral > 40) aiThought = "你虽然松开了手，但积分池里的余温还未散去，这种持续的安全感很棒。";
+            else aiThought = "进入环境监听与待机模式，物理热源已切断。";
+        } else {
+            if (activeInput === 'hit' || (activeInput === 'squeeze' && forceVal > 800)) {
+                aiThought = "[威胁警报] 检测到突发峰值重压！清空所有信任积分，安全引擎阻断，触发应激退缩机制！";
+            } else if (activeInput === 'squeeze') {
+                if (forceVal > 500) aiThought = "识别到高压揉捏，进入压力吸收模式。正在渲染浅天空蓝光效，模拟缓慢的叹气以分担你的焦虑感。";
+                else aiThought = "你在轻轻揉捏我，压力槽正在缓慢上升，我正在试图将其转化为微热的陪伴。";
+            } else if (activeInput === 'hug') {
+                if (integral < 30) aiThought = "感受到大面积的包裹感，开始启动核心热源加温...建立羁绊中。";
+                else aiThought = "羁绊值(Attachment)大幅飙升！完全卸下防备，将温度锁定在类生命体的37℃，输出常亮的日落橘暖光。";
+            } else if (activeInput === 'stroke') {
+                if (stats.def.cur > 20) aiThought = "虽然你在抚摸我，但之前受到的惊吓让我无法立刻放松，积分爬升缓慢。";
+                else aiThought = "舒服的抚摸节律。积分池平稳注入，开启低频的平缓呼吸灯，引导进入同频的心流状态。";
+            }
+        }
+
+        let entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = `
+            <div class="log-json">${JSON.stringify(payload)}</div>
+            <div class="log-ai">${aiThought}</div>
+        `;
+        terminal.appendChild(entry);
+        terminal.scrollTop = terminal.scrollHeight;
+
+    }, 3500); 
+
+</script>
+</body>
+</html>
